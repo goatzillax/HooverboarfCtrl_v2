@@ -1,4 +1,7 @@
 
+#define USE_OLED
+#define USE_CRSF
+#define USE_FAN
 
 //  mlemetry would be spiffy neato but i r srsly cornstrained on pins
 //  ESP32-C3 pins btw
@@ -40,7 +43,7 @@ enum mower_states {
 ////////////////////////////////////////////////////////////////////////////////
 //  hooverboarf stuff
 
-#include <CircularBuffer.h>
+#include <CircularBuffer.hpp>
 
 //  hooverboarf serial stats
 unsigned long hover_csum_fails=0;
@@ -88,12 +91,12 @@ void loop_fan() {
 #ifdef USE_OLED
 //  default pins appear correct for shield
 #include <Wire.h>
-#include <LOLIN_I2C_BUTTON.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 #define OLED_RESET -1
 Adafruit_SSD1306 display(OLED_RESET);
 //  nice butt wemos no longer makes these n the knockoffs don't even have buttons
+//#include <LOLIN_I2C_BUTTON.h>
 //I2C_BUTTON oled_button(DEFAULT_I2C_BUTTON_ADDRESS); //I2C Address 0x31
 //unsigned long last_button=0;
 
@@ -132,6 +135,8 @@ void loop_oled() {
 CRSFforArduino *crsf = nullptr;
 
 int rcChannelCount = crsfProtocol::RC_CHANNEL_COUNT;
+
+void onReceiveRcChannels(serialReceiverLayer::rcChannels_t *rcData);
 
 const char *rcChannelNames[] = {
         "T",
@@ -180,7 +185,7 @@ enum crsf_state_e {
 
 crsf_state_e crsf_state = CRSF_ACTIVE;
 
-uint16_t adjust_value(uint16_t value, crsf_channel_cfg_s cfg) {
+uint16_t adjust_value(uint16_t value, struct crsf_channel_cfg_s cfg) {
 	//  probably should have a switch to enable totaly raw mode for debug
 #if 0
 	//  deadband optimally is applied before any expo.  i.e. raw value of 6 with a deadband should turn into a raw value of 1.
@@ -201,7 +206,7 @@ uint16_t adjust_value(uint16_t value, crsf_channel_cfg_s cfg) {
 }
 
 void onReceiveRcChannels(serialReceiverLayer::rcChannels_t *rcData) {
-        unsigned long now = millis()
+        unsigned long now = millis();
 
         if (now - print_last > 1000) {
                 print_last = now;
@@ -212,10 +217,10 @@ void onReceiveRcChannels(serialReceiverLayer::rcChannels_t *rcData) {
 
 	if (rcData->failsafe) {
 		if (crsf_state != CRSF_FAILSAFE) {
-			crsf_state_e = CRSF_FAILSAFE;
+			crsf_state = CRSF_FAILSAFE;
 
-			for (int i=1; i<rsfProtocol::RC_CHANNEL_COUNT; i++) {
-				rcData->values[i] = crsf_values_raw[i] = crsf_fs_values[i];
+			for (int i=1; i<crsfProtocol::RC_CHANNEL_COUNT; i++) {
+				rcData->value[i] = crsf_values_raw[i] = crsf_fs_values[i];
 			}
 		}  //  transition to failsafe
 	}
